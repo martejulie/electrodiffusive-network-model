@@ -1,13 +1,14 @@
 import os
 import time
-from plotter import plot_phi
-from plotter import plot_c_alpha
+from plotter import plot_phi, plot_c_alpha, plot_phi_m
 from ednm import model, solver 
 
 # synapses (0: off, 1: on)
+# When turned on, each neuron connects to its right neighbour from soma to dendrite (neuron U connects to 0), 
+# and neuron 0 receives a stimulus at t = 0.1 s.
 synapses = 1
 
-# boundary condition (0: closed, 1: open)
+# boundary condition (0: closed, 1: periodic)
 bc = 1
 
 # time variables
@@ -16,7 +17,7 @@ Tstop = 1.5
 # stimulus
 stim_start = 0
 stim_end = 0
-j_stim = 0 # 20e-5    
+j_stim = 0    
 N_stim = 0 # number of cells receiving constant external input
 
 stimulus_protocol = {
@@ -56,5 +57,7 @@ print('time spent to set up the model:', seconds_, 'sec')
 print('simulation time:', h, 'h,', m, 'min, and', s, 'sec')
 
 # plot data
-plot_phi(N_units)
-plot_c_alpha(N_units)
+path_figures = 'results/figures/'
+plot_phi(path_data, path_figures, N_units)
+plot_c_alpha(path_data, path_figures, N_units)
+plot_phi_m(path_data, path_figures, N_units)

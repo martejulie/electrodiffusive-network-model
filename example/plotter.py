@@ -8,7 +8,6 @@ import matplotlib.gridspec as gridspec
 np_load_old = np.load
 np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
 
-
 def return_value_alpha(alpha, feature, n_unit):
     if feature == 'alpha_sn':
         return alpha[:,0,0,n_unit]
@@ -102,6 +101,7 @@ def return_value_ss(ss, feature, n_unit):
         return ss[:,5,n_unit]
 
 def load_data(path_data, path_figures, n_unit):
+    """ Load data for unit number n_unit from file. """
 
     data = np.load(path_data + 'data.npz')
 
@@ -221,11 +221,9 @@ def load_data(path_data, path_figures, n_unit):
 
     return data_dict
 
-
-def plot_phi(N_units):
-
-    path_data = 'results/data/'
-    path_figures = 'results/figures/'
+def plot_phi(path_data, path_figures, N_units):
+    """ Plot neuronal membrane potentials (soma), extracellular potentials (soma layer),
+    and glial membrane potentials (soma layer). """
 
     if not os.path.isdir(path_figures):
         os.makedirs(path_figures)
@@ -235,7 +233,6 @@ def plot_phi(N_units):
     # set axes
     fig = plt.figure()
     gs = gridspec.GridSpec(6,2)
-
     axA = fig.add_subplot(gs[0,:])
     axB = fig.add_subplot(gs[1,0])
     axC = fig.add_subplot(gs[1,1])
@@ -297,11 +294,10 @@ def plot_phi(N_units):
     axI.plot(t, data_dict['phi_dg'] - data_dict['phi_de'], label='dendrite', color=colors[n_unit], linestyle='--')
 
     # adjust axes
-    axG.set_ylim([-85, -78])
     axH.set_ylim([-85, -83])
     axI.set_ylim([-85, -83])
     for ax in [axA, axD, axG]:
-        ax.set_xlim([0, 1.5])
+        ax.set_xlim([0, t[-1]])
     for ax in [axB, axC, axE, axF, axH, axI]:
         ax.set_xlim([0.1, 0.14])
 
@@ -342,10 +338,9 @@ def plot_phi(N_units):
     plt.savefig(path_figures + 'phi.pdf', dpi=300)
     plt.close()
 
-def plot_c_alpha(N_units):
-
-    path_data = 'results/data/'
-    path_figures = 'results/figures/'
+def plot_c_alpha(path_data, path_figures, N_units):
+    """ Plot extracellular, neuronal, and glial potassium concentrations (soma layer), 
+    and changes in extracellular volume fractions (soma layer). """
 
     if not os.path.isdir(path_figures):
         os.makedirs(path_figures)
@@ -355,7 +350,7 @@ def plot_c_alpha(N_units):
     # set axes
     fig = plt.figure()
     gs = gridspec.GridSpec(6,2)
-
+    
     axA = fig.add_subplot(gs[0,:])
     axB = fig.add_subplot(gs[1,0])
     axC = fig.add_subplot(gs[1,1])
@@ -368,6 +363,7 @@ def plot_c_alpha(N_units):
     # set colors
     colors = sns.color_palette('muted')
 
+    # get t array
     data_dict = load_data(path_data, path_figures, 0)
     t = data_dict['t']
 
@@ -408,17 +404,13 @@ def plot_c_alpha(N_units):
         axH.plot(t, ((data_dict['alpha_se']-data_dict['alpha_se'][0])/data_dict['alpha_se'][0])*100, color=colors[n_unit])
 
     # adjust axes
-    axA.set_ylim([-0.05, 1])
     axB.set_ylim([-0.01, 0.15])
     axC.set_ylim([-0.01, 0.15])
     axD.set_ylim([-0.4, 0.01])
-    axD.set_yticks([-0.3, 0])
     axE.set_ylim([-0.1, 0.01])
     axF.set_ylim([-0.1, 0.01])
-    axG.set_ylim([-0.01, 0.1])
-    axH.set_ylim([-0.001, 0.01])
     for ax in [axA, axD, axG, axH]:
-        ax.set_xlim([0, 1.5])
+        ax.set_xlim([0, t[-1]])
     for ax in [axB, axC, axE, axF]:
         ax.set_xlim([0.1, 0.14])
 
@@ -460,7 +452,51 @@ def plot_c_alpha(N_units):
     plt.close()
 
 
+def plot_phi_m(path_data, path_figures, N_units):
+    " Plot neuronal membrane potentials (soma) "
+
+    if not os.path.isdir(path_figures):
+        os.makedirs(path_figures)
+
+    set_style('default', w=1, h=1.2)
+
+    # set axis
+    fig = plt.figure()
+    gs = gridspec.GridSpec(1,1)
+    ax = fig.add_subplot(gs[0,:])
+
+    # set colors
+    colors = sns.color_palette('muted')
+    
+    # get t array
+    data_dict = load_data(path_data, path_figures, 0)
+    t = data_dict['t']
+
+    for n_unit in range(N_units):
+        data_dict = load_data(path_data, path_figures, n_unit)
+        ax.plot(t, data_dict['phi_sn'] - data_dict['phi_se'], color=colors[n_unit], label=str(n_unit+1))
+
+    fig.legend(title='unit \#')
+
+    # set titles labels
+    ax.set_ylabel(r'$\phi_\mathrm{m,ns}$ [mV]')
+
+    # make pretty
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_xlabel('time [s]')
+    ax.set_xlim([0, t[-1]])
+
+    fig.tight_layout()
+
+    plt.savefig(path_figures + 'phi_m.pdf', dpi=300)
+    plt.close()
+
 if __name__ == "__main__":
 
-    plot_phi(10)
-    plot_c_alpha(10)
+    path_data = 'results/data/'
+    path_figures = 'results/figures/'
+
+    plot_phi(path_data, path_figures, 10)
+    plot_c_alpha(path_data, path_figures, 10)
+    plot_phi_m(path_data, path_figures, 10)
