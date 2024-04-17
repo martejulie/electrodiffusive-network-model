@@ -1,6 +1,5 @@
 import numpy as np
-import time
-from numba import int32, float32, float64
+from numba import int32, float64
 from numba.experimental import jitclass
 
 spec = [
@@ -153,10 +152,7 @@ class Model(object):
         self.dxl = 6.67e-2
         
         # distance between units [cm]
-        #self.dxu = 1.0e-4
-        #self.dxu = 5.0e-4
-        #self.dxu = 1.0e-3
-        self.dxu = 1.0e-1
+        self.dxu = 5.0e-4
 
         # layer coupling
         th = 350
@@ -170,9 +166,9 @@ class Model(object):
         self.D = np.array([D_Na, D_K, D_Cl, D_Ca], dtype=np.float64)
 
         # mobility fraction 
-        self.upsilon = np.array([[1.0, 1.0, 1.0], \
-                       [1.0, 1.0, 1.0], \
-                       [1.0, 1.0, 1.0], \
+        self.upsilon = np.array([[1.0, 1.0, 1.0],
+                       [1.0, 1.0, 1.0],
+                       [1.0, 1.0, 1.0],
                        [0.01, 0.0, 1.0]], dtype=np.float64)
 
         # tortuosities
@@ -257,32 +253,32 @@ class Model(object):
 
         # set amount of immobile ions - [mol/m**3]
         a_sn = gamma_m*C_m/(z_0*F)*phi_msn_init \
-                - self.alpha_sn_init/z_0*(z_Na*self.Na_sn_init \
-                + z_K*self.K_sn_init \
-                + z_Cl*self.Cl_sn_init \
+                - self.alpha_sn_init/z_0*(z_Na*self.Na_sn_init
+                + z_K*self.K_sn_init
+                + z_Cl*self.Cl_sn_init
                 + z_Ca*self.Ca_sn_init) 
         a_sg = gamma_m*C_m/(z_0*F)*phi_msg_init \
-                - self.alpha_sg_init/z_0*(z_Na*self.Na_sg_init \
-                + z_K*self.K_sg_init \
+                - self.alpha_sg_init/z_0*(z_Na*self.Na_sg_init
+                + z_K*self.K_sg_init
                 + z_Cl*self.Cl_sg_init)
         a_se = - gamma_m*C_m/(z_0*F)*(phi_msn_init + phi_msg_init) \
-                - self.alpha_se_init/z_0*(z_Na*self.Na_se_init \
-                + z_K*self.K_se_init \
-                + z_Cl*self.Cl_se_init \
+                - self.alpha_se_init/z_0*(z_Na*self.Na_se_init
+                + z_K*self.K_se_init
+                + z_Cl*self.Cl_se_init
                 + z_Ca*self.Ca_se_init) 
         a_dn = gamma_m*C_m/(z_0*F)*phi_mdn_init \
-                - self.alpha_dn_init/z_0*(z_Na*self.Na_dn_init \
-                + z_K*self.K_dn_init \
-                + z_Cl*self.Cl_dn_init \
+                - self.alpha_dn_init/z_0*(z_Na*self.Na_dn_init
+                + z_K*self.K_dn_init
+                + z_Cl*self.Cl_dn_init
                 + z_Ca*self.Ca_dn_init) 
         a_dg = gamma_m*C_m/(z_0*F)*phi_mdg_init \
-                - self.alpha_dg_init/z_0*(z_Na*self.Na_dg_init \
-                + z_K*self.K_dg_init \
+                - self.alpha_dg_init/z_0*(z_Na*self.Na_dg_init
+                + z_K*self.K_dg_init
                 + z_Cl*self.Cl_dg_init)
         a_de = - gamma_m*C_m/(z_0*F)*(phi_mdn_init + phi_mdg_init) \
-                - self.alpha_de_init/z_0*(z_Na*self.Na_de_init \
-                + z_K*self.K_de_init \
-                + z_Cl*self.Cl_de_init \
+                - self.alpha_de_init/z_0*(z_Na*self.Na_de_init
+                + z_K*self.K_de_init
+                + z_Cl*self.Cl_de_init
                 + z_Ca*self.Ca_de_init) 
 
         self.a_s = np.zeros((self.N_domains, self.N_units), dtype=np.float64)
@@ -296,47 +292,47 @@ class Model(object):
         """ Calculate and set initial hydrostatic pressure ensuring zero fluid flow at t = 0. """
 
         # transmembrane hydrostatic pressure - neuron
-        delta_p_sn = - self.R*self.T*(self.a_s[-1]/self.alpha_se_init \
-                   + self.upsilon[0][-1]*self.Na_se_init \
-                   + self.upsilon[1][-1]*self.K_se_init \
-                   + self.upsilon[2][-1]*self.Cl_se_init \
-                   + self.upsilon[3][-1]*self.Ca_se_init \
-                   - self.a_s[0]/self.alpha_sn_init \
-                   - (self.upsilon[0][0]*self.Na_sn_init \
-                   + self.upsilon[1][0]*self.K_sn_init \
-                   + self.upsilon[2][0]*self.Cl_sn_init \
+        delta_p_sn = - self.R*self.T*(self.a_s[-1]/self.alpha_se_init
+                   + self.upsilon[0][-1]*self.Na_se_init
+                   + self.upsilon[1][-1]*self.K_se_init
+                   + self.upsilon[2][-1]*self.Cl_se_init
+                   + self.upsilon[3][-1]*self.Ca_se_init
+                   - self.a_s[0]/self.alpha_sn_init
+                   - (self.upsilon[0][0]*self.Na_sn_init
+                   + self.upsilon[1][0]*self.K_sn_init
+                   + self.upsilon[2][0]*self.Cl_sn_init
                    + self.upsilon[3][0]*self.Ca_sn_init))
-        delta_p_dn = - self.R*self.T*(self.a_d[-1]/self.alpha_de_init \
-                   + self.upsilon[0][-1]*self.Na_de_init \
-                   + self.upsilon[1][-1]*self.K_de_init \
-                   + self.upsilon[2][-1]*self.Cl_de_init \
-                   + self.upsilon[3][-1]*self.Ca_de_init \
-                   - self.a_d[0]/self.alpha_dn_init \
-                   - (self.upsilon[0][0]*self.Na_dn_init \
-                   + self.upsilon[1][0]*self.K_dn_init \
-                   + self.upsilon[2][0]*self.Cl_dn_init \
+        delta_p_dn = - self.R*self.T*(self.a_d[-1]/self.alpha_de_init
+                   + self.upsilon[0][-1]*self.Na_de_init
+                   + self.upsilon[1][-1]*self.K_de_init
+                   + self.upsilon[2][-1]*self.Cl_de_init
+                   + self.upsilon[3][-1]*self.Ca_de_init
+                   - self.a_d[0]/self.alpha_dn_init
+                   - (self.upsilon[0][0]*self.Na_dn_init
+                   + self.upsilon[1][0]*self.K_dn_init
+                   + self.upsilon[2][0]*self.Cl_dn_init
                    + self.upsilon[3][0]*self.Ca_dn_init))
 
         # transmembrane hydrostatic pressure - glia 
-        delta_p_sg = - self.R*self.T*(self.a_s[-1]/self.alpha_se_init \
-                   + self.upsilon[0][-1]*self.Na_se_init \
-                   + self.upsilon[1][-1]*self.K_se_init \
-                   + self.upsilon[2][-1]*self.Cl_se_init \
-                   + self.upsilon[3][-1]*self.Ca_se_init \
-                   - self.a_s[1]/self.alpha_sg_init \
-                   - (self.upsilon[0][1]*self.Na_sg_init \
-                   + self.upsilon[1][1]*self.K_sg_init \
-                   + self.upsilon[2][1]*self.Cl_sg_init \
+        delta_p_sg = - self.R*self.T*(self.a_s[-1]/self.alpha_se_init
+                   + self.upsilon[0][-1]*self.Na_se_init
+                   + self.upsilon[1][-1]*self.K_se_init
+                   + self.upsilon[2][-1]*self.Cl_se_init
+                   + self.upsilon[3][-1]*self.Ca_se_init
+                   - self.a_s[1]/self.alpha_sg_init
+                   - (self.upsilon[0][1]*self.Na_sg_init
+                   + self.upsilon[1][1]*self.K_sg_init
+                   + self.upsilon[2][1]*self.Cl_sg_init
                    + self.upsilon[3][1]*self.Ca_sg_init))
-        delta_p_dg = - self.R*self.T*(self.a_d[-1]/self.alpha_de_init \
-                   + self.upsilon[0][-1]*self.Na_de_init \
-                   + self.upsilon[1][-1]*self.K_de_init \
-                   + self.upsilon[2][-1]*self.Cl_de_init \
-                   + self.upsilon[3][-1]*self.Ca_de_init \
-                   - self.a_s[1]/self.alpha_dg_init \
-                   - (self.upsilon[0][1]*self.Na_dg_init \
-                   + self.upsilon[1][1]*self.K_dg_init \
-                   + self.upsilon[2][1]*self.Cl_dg_init \
+        delta_p_dg = - self.R*self.T*(self.a_d[-1]/self.alpha_de_init
+                   + self.upsilon[0][-1]*self.Na_de_init
+                   + self.upsilon[1][-1]*self.K_de_init
+                   + self.upsilon[2][-1]*self.Cl_de_init
+                   + self.upsilon[3][-1]*self.Ca_de_init
+                   - self.a_s[1]/self.alpha_dg_init
+                   - (self.upsilon[0][1]*self.Na_dg_init
+                   + self.upsilon[1][1]*self.K_dg_init
+                   + self.upsilon[2][1]*self.Cl_dg_init
                    + self.upsilon[3][1]*self.Ca_dg_init))
 
         # collect and set transmembrane hydrostatic pressure
@@ -455,7 +451,7 @@ class Model(object):
 
         return
 
-    def intralayer_flux(self, k, r, c_s, c_d, phi_s, phi_d):
+    def interlayer_flux(self, k, r, c_s, c_d, phi_s, phi_d):
 
         # get parameters
         R = self.R
@@ -472,14 +468,14 @@ class Model(object):
         f_1 = theta[r] * D[k] * upsilon[k][r] / (lambdas[r]**2 * dxl)
         f_2 = f_1 * z[k] / (2 * psi)
 
-        j_intralayer = - f_1 * (c_d[k][r] - c_s[k][r]) \
+        j_interlayer = - f_1 * (c_d[k][r] - c_s[k][r]) \
                 - f_2 * (c_s[k][r] + c_d[k][r]) * (phi_d[r]-phi_s[r])
         djl_dcs = f_1 - f_2 * (phi_d[r] - phi_s[r])
         djl_dcd = - f_1 - f_2 * (phi_d[r] - phi_s[r])
         djl_dphis = f_2*(c_s[k][r] + c_d[k][r]) 
         djl_dphid = - djl_dphis
 
-        return j_intralayer, djl_dcs, djl_dcd, djl_dphis, djl_dphid
+        return j_interlayer, djl_dcs, djl_dcd, djl_dphis, djl_dphid
     
     def interunits_flux(self, k, r, c_l, phi_l):
 
@@ -502,7 +498,6 @@ class Model(object):
         cc = (c_l[k][r][:-1] + c_l[k][r][1:])
         pp = (phi_l[r][1:] - phi_l[r][:-1])
 
-        #if r == 2 or r == -1:
         if r != 0:
             j_interunits[:-1] = - f_1 * (c_l[k][r][1:] - c_l[k][r][:-1]) \
                     - f_2 * cc * pp
@@ -519,15 +514,6 @@ class Model(object):
                 dju_dc1[-1] = - f_1 - f_2 * (phi_l[r][0] - phi_l[r][-1])
                 dju_dphi0[-1] = f_2 * (c_l[k][r][-1] + c_l[k][r][0])
                 dju_dphi1[-1] = - dju_dphi0[-1]
-
-#        # strong gap junctions
-#        if r == 1:
-#            j_interunits[:-1] = 2000*(- f_1 * (c_l[k][r][1:] - c_l[k][r][:-1]) \
-#                    - f_2 * cc * pp)
-#            dju_dc0[:-1] = 2000*(f_1 - f_2 * pp)
-#            dju_dc1[:-1] = 2000*(- f_1 - f_2 * pp)
-#            dju_dphi0[:-1] = 2000*(f_2 * cc)
-#            dju_dphi1[:-1] = - dju_dphi0[:-1]
 
         return j_interunits, dju_dc0, dju_dc1, dju_dphi0, dju_dphi1
 
@@ -558,12 +544,8 @@ class Model(object):
         tau_1 = 3.0e-3   # [s]
         tau_2 = 1.0e-3   # [s]
 
-        #S = 15.0          # synaptic strength (unitless)
         S = 14.0          # synaptic strength (unitless)
-        #S = 8.0          # synaptic strength (unitless)
-        #t_delay = .02
-        t_delay = .01
-        #t_delay = 1e-3
+        t_delay = .01     # synaptic delay [s]
 
         t_s = np.zeros(np.shape(t_AP), dtype=np.float64)
         t_s[:,1:] = t_AP[:,:-1]
@@ -591,9 +573,6 @@ class Model(object):
            
         tau_1 = 3.0e-3   # [s]
         tau_2 = 1.0e-3   # [s]
-
-        S = 1.0          # synaptic strength (unitless)
-        t_delay = .001
 
         g = np.zeros(self.N_units, dtype=np.float64)
         
@@ -765,8 +744,8 @@ class Model(object):
         z_Ca = self.z[3]
         bCa_n = 0.01
         if self.synapses:
-            #g_synapse = self.g_syn(t, t_AP)
-            g_synapse = self.g_syn_external(t, spikes)
+            g_synapse = self.g_syn(t, t_AP)
+            #g_synapse = self.g_syn_external(t, spikes)
         else: g_synapse = np.zeros(self.N_units, dtype=np.float64)
 
         # calculate membrane potentials
@@ -1104,11 +1083,11 @@ class Model(object):
         for r in range(N_domains):
             for k in range(N_ions):
                 
-                j_intralayer, djl_dcs, djl_dcd, djl_dphis, djl_dphid = self.intralayer_flux(k, r, c_s, c_d, phi_s, phi_d)
-                f_j_intralayer = dt*alpha_s_[r]/(dxl*gamma_m)*j_intralayer
+                j_interlayer, djl_dcs, djl_dcd, djl_dphis, djl_dphid = self.interlayer_flux(k, r, c_s, c_d, phi_s, phi_d)
+                f_j_interlayer = dt*alpha_s_[r]/(dxl*gamma_m)*j_interlayer
 
-                Res[jc_s[k][r]:N_unknowns_tot:N_unknowns_unit] += (- alpha_s[r]*c_s[k][r] + alpha_s_[r]*c_s_[k][r])/gamma_m - f_j_intralayer
-                Res[jc_d[k][r]:N_unknowns_tot:N_unknowns_unit] += (- alpha_d[r]*c_d[k][r] + alpha_d_[r]*c_d_[k][r])/gamma_m + f_j_intralayer
+                Res[jc_s[k][r]:N_unknowns_tot:N_unknowns_unit] += (- alpha_s[r]*c_s[k][r] + alpha_s_[r]*c_s_[k][r])/gamma_m - f_j_interlayer
+                Res[jc_d[k][r]:N_unknowns_tot:N_unknowns_unit] += (- alpha_d[r]*c_d[k][r] + alpha_d_[r]*c_d_[k][r])/gamma_m + f_j_interlayer
 
         # contributions from membrane currents
         for r in range(N_domains-1):
@@ -1266,8 +1245,8 @@ class Model(object):
         for k in range(N_ions):
             # concentration-concentration and concentration-voltage entries
             for r in range(N_domains):
-                # contributions from j_intralayer
-                j_intralayer, djl_dcs, djl_dcd, djl_dphis, djl_dphid =  self.intralayer_flux(k, r, c_s, c_d, phi_s, phi_d)
+                # contributions from j_interlayer
+                j_interlayer, djl_dcs, djl_dcd, djl_dphis, djl_dphid =  self.interlayer_flux(k, r, c_s, c_d, phi_s, phi_d)
                 f = dt * alpha_s_[r] / (dxl * gamma_m)
                 # soma entries
                 irow[ind:indend] = np.arange(jc_s[k][r], N_unknowns_tot, N_unknowns_unit)

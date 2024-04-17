@@ -7,21 +7,27 @@ from ednm.aot_residual import residual
 from ednm.aot_jacobian import jacobian
 
 #spikes = np.load('spike_train.npz')['spike_train']
-spikes = np.linspace(0,2,10)
+spikes = np.linspace(0, 2, 10)
 
 def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=True):
-    """ 
-    Arguments: 
+    """
+    Updates alpha, c, and phi using Newton's method.
+
+    Arguments:
         model (class): network model
         dt (float): time step
-        alpha (3D array): volume fractions [layer (s,d)][domain (n,g)][unit]
-        c (4D array): ion concentrations [layer (s,d)][ion (Na, K, Cl, Ca)][domain (n,g,e)][unit]
-        phi (3D array): electrical potentials [layer (s,d,e)][domain (n,g)][unit]
+        alpha (3D array): volume fractions from previous time step [layer (s,d)][domain (n,g)][unit]
+        c (4D array): ion concentrations from previous time step [layer (s,d)][ion (Na, K, Cl, Ca)][domain (n,g,e)][unit]
+        phi (3D array): electrical potentials from previous time step [layer (s,d,e)][domain (n,g)][unit]
         ss_ (2D array): gating variables from previous time step [variable][unit]
         t (float): time
-        t_AP (2D array): time of action potential 
+        t_AP (2D array): time of action potentials
         j_stim (float): stimulus flux
         N_stim (int): number of cells receiving external input
+    Returns: 
+        alpha (3D array): volume fractions at time t
+        c (4D array): ion concentrations at time t
+        phi (3D array): electrical potentials at time t
     """
 
     # get parameters
@@ -42,7 +48,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
 
     # parameters for Newton iteration
     itermax = 10            # maximum Newton iterations allowed
-    tol = 1e-12             # tolerance 
+    tol = 1e-12             # tolerance
     rsd = tol + 1           # initiate residual
     N_iter = 0              # iteration counter
 
@@ -54,7 +60,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
     alpha_d[-1] = 1 - np.sum(alpha[1], 0)
     c_s, c_d = c
     phi_s, phi_d = phi
-    # store past values 
+    # store past values
     alpha_s_ = copy.deepcopy(alpha_s)
     alpha_d_ = copy.deepcopy(alpha_d)
     c_s_, c_d_ = copy.deepcopy(c)
@@ -64,25 +70,20 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
     while rsd > tol:
 
         # compute residual
-#        Res = model.residual(dt, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d, \
-#                alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, j_stim, N_stim, spikes)
         Res = residual(dt, N_units, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
                 alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, j_stim, N_stim, spikes)
-
-        # if residual is small or iteration count is large, exit loop
         rsd = norm(Res, np.inf)
 
-        if verbose:    
+        if verbose:
             print('N_iter: %d, rsd: %e, phi_de: %e' % (N_iter, rsd, phi_d[-1][0]))
 
+        # if residual is small or iteration count is large, exit loop
         if rsd < tol or N_iter >= itermax:
             break
 
         N_iter += 1
 
         # compute Jacobian
-#        irow, icol, Avals = model.jacobian(dt, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d, \
-#                                alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, spikes)
         irow, icol, Avals = jacobian(dt, N_units, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
                                 alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, spikes)
 
@@ -93,37 +94,17 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
         Q = spsolve(A,-Res)
 
         # update alpha, k, and phi 
-        ### note: to be improved ###
-        my_alpha_s = np.zeros((3, N_units))
-        my_alpha_d = np.zeros((3, N_units))
-        my_c_s = np.zeros((N_ions, N_domains, N_units))
-        my_c_d = np.zeros((N_ions, N_domains, N_units))
-        my_phi_s = np.zeros((3, N_units))
-        my_phi_d = np.zeros((3, N_units))
-
         for r in range(N_domains):
-            Xphi_s = phi_s[r] + Q[jphi_s[r]:N_unknowns_tot:N_unknowns_unit]
-            Xphi_d = phi_d[r] + Q[jphi_d[r]:N_unknowns_tot:N_unknowns_unit]
-            my_phi_s[r] = Xphi_s
-            my_phi_d[r] = Xphi_d
+            phi_s[r] = phi_s[r] + Q[jphi_s[r]:N_unknowns_tot:N_unknowns_unit]
+            phi_d[r] = phi_d[r] + Q[jphi_d[r]:N_unknowns_tot:N_unknowns_unit]
             for k in range(N_ions):
-                Xc_s = c_s[k][r] + Q[jc_s[k][r]:N_unknowns_tot:N_unknowns_unit]
-                Xc_d = c_d[k][r] + Q[jc_d[k][r]:N_unknowns_tot:N_unknowns_unit]
-                my_c_s[k][r] = Xc_s
-                my_c_d[k][r] = Xc_d
+                c_s[k][r] = c_s[k][r] + Q[jc_s[k][r]:N_unknowns_tot:N_unknowns_unit]
+                c_d[k][r] = c_d[k][r] + Q[jc_d[k][r]:N_unknowns_tot:N_unknowns_unit]
         for r in range(N_domains-1):
-                Xalpha_s = alpha_s[r] + Q[jalpha_s[r]:N_unknowns_tot:N_unknowns_unit]
-                Xalpha_d = alpha_d[r] + Q[jalpha_d[r]:N_unknowns_tot:N_unknowns_unit]
-                my_alpha_s[r] = Xalpha_s
-                my_alpha_d[r] = Xalpha_d
-        my_alpha_s[-1] = 1 - np.sum(my_alpha_s, 0)
-        my_alpha_d[-1] = 1 - np.sum(my_alpha_d, 0)
-        alpha_s = my_alpha_s
-        alpha_d = my_alpha_d
-        c_s = my_c_s
-        c_d = my_c_d
-        phi_s = my_phi_s
-        phi_d = my_phi_d
+                alpha_s[r] = alpha_s[r] + Q[jalpha_s[r]:N_unknowns_tot:N_unknowns_unit]
+                alpha_d[r] = alpha_d[r] + Q[jalpha_d[r]:N_unknowns_tot:N_unknowns_unit]
+        alpha_s[-1] = 1 - alpha_s[0] - alpha_s[1]
+        alpha_d[-1] = 1 - alpha_d[0] - alpha_d[1]
 
     alpha = [alpha_s[0:-1], alpha_d[0:-1]]
     c = [c_s, c_d]
@@ -143,9 +124,7 @@ def gating_variables(model, dt, ss_, c, phi):
 
     # calculate membrane potentials
     phi_mns = phi_s[0] - phi_s[-1]
-    phi_mgs = phi_s[1] - phi_s[-1]
     phi_mnd = phi_d[0] - phi_d[-1]
-    phi_mgd = phi_d[1] - phi_d[-1]
 
     # solve
     h = (h_ + dt * model.alpha_h(phi_mns)) / (1.0 + dt * model.alpha_h(phi_mns) + dt * model.beta_h(phi_mns))
@@ -191,9 +170,9 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
     Ca_sn_init = model.Ca_sn_init
     Ca_sg_init = model.Ca_sg_init
     Ca_se_init = model.Ca_se_init
-    c_s_ = np.array([[Na_sn_init, Na_sg_init, Na_se_init], \
-            [K_sn_init, K_sg_init, K_se_init], \
-            [Cl_sn_init, Cl_sg_init, Cl_se_init], \
+    c_s_ = np.array([[Na_sn_init, Na_sg_init, Na_se_init],
+            [K_sn_init, K_sg_init, K_se_init],
+            [Cl_sn_init, Cl_sg_init, Cl_se_init],
             [Ca_sn_init, Ca_sg_init, Ca_se_init]], dtype=np.float64)
     Na_dn_init = model.Na_dn_init
     Na_dg_init = model.Na_dg_init
@@ -207,9 +186,9 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
     Ca_dn_init = model.Ca_dn_init
     Ca_dg_init = model.Ca_dg_init
     Ca_de_init = model.Ca_de_init
-    c_d_ = np.array([[Na_dn_init, Na_dg_init, Na_de_init], \
-            [K_dn_init, K_dg_init, K_de_init], \
-            [Cl_dn_init, Cl_dg_init, Cl_de_init], \
+    c_d_ = np.array([[Na_dn_init, Na_dg_init, Na_de_init],
+            [K_dn_init, K_dg_init, K_de_init],
+            [Cl_dn_init, Cl_dg_init, Cl_de_init],
             [Ca_dn_init, Ca_dg_init, Ca_de_init]], dtype=np.float64)
 
     phi_sn_init = model.phi_sn_init
@@ -251,8 +230,7 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
     print('------------------------------------')
 
     # maximum number of time steps
-    dt = 5e-5       # initial time step
-    #dt = 1e-4      # initial time step
+    dt = 5e-5       # time step
     N_t = int(Tstop/dt) + 3
 
     # create arrays to store results
@@ -275,11 +253,6 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
     c_array[0] = c_ 
     phi_array[0] = phi_
     ss_array[0] = ss_
-
-    # parameters for time stepping
-    dt_min = 1e-4
-    dt_max = 1e-2
-    dphi_tol = 0.05  # [mV]
 
     # solve
     k = 1
@@ -305,7 +278,6 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
         phi_array[k][:][:][:] = phi
         ss_array[k][:][:] = ss 
 
-        # if fixed timestep:
         # update solution
         alpha_ = alpha
         c_ = c
@@ -326,97 +298,6 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
         # update k
         k += 1
 
-#        # if adaptive timestepping:
-#        phi_mns_ = phi_array[k-10][0][0][:] - phi_array[k-10][0][-1][:]
-#        phi_mgs_ = phi_array[k-10][0][1][:] - phi_array[k-10][0][-1][:]
-#        phi_mnd_ = phi_array[k-10][1][0][:] - phi_array[k-10][1][-1][:]
-#        phi_mgd_ = phi_array[k-10][1][1][:] - phi_array[k-10][1][-1][:]
-#        
-#        phi_mns = phi_array[k][0][0][:] - phi_array[k][0][-1][:]
-#        phi_mgs = phi_array[k][0][1][:] - phi_array[k][0][-1][:]
-#        phi_mnd = phi_array[k][1][0][:] - phi_array[k][1][-1][:]
-#        phi_mgd = phi_array[k][1][1][:] - phi_array[k][1][-1][:]
-#
-#        dphi_mns = abs(phi_mns - phi_mns_)
-#        dphi_mgs = abs(phi_mgs - phi_mgs_)
-#        dphi_mnd = abs(phi_mnd - phi_mnd_)
-#        dphi_mgd = abs(phi_mgd - phi_mgd_)
-#        if t <= 0.001:
-#            
-#            # update solution
-#            alpha_ = alpha
-#            c_ = c
-#            phi_ = phi
-#            ss_ = ss
-#
-#            # save spike times
-#            phi_ms = phi[0][0] - phi[0][-1]
-#            above_th = np.greater_equal(phi_ms, -20)
-#            condition = above_th > spiking
-#            spiking[condition] = True
-#            t_AP[k][condition] = t
-#            below_th = np.less(phi_ms, -40)
-#            spiking[below_th] = False
-#
-#            # update time
-#            t += dt
-#            # update k
-#            k += 1
-#        elif np.max(dphi_mns) < dphi_tol and np.max(dphi_mgs) < dphi_tol and np.max(dphi_mnd) < dphi_tol and np.max(dphi_mgd) < dphi_tol:
-#
-#            # update solution
-#            alpha_ = alpha
-#            c_ = c
-#            phi_ = phi
-#            ss_ = ss
-#
-#            # save spike times
-#            phi_ms = phi[0][0] - phi[0][-1]
-#            above_th = np.greater_equal(phi_ms, -20)
-#            condition = above_th > spiking
-#            spiking[condition] = True
-#            t_AP[k][condition] = t
-#            below_th = np.less(phi_ms, -40)
-#            spiking[below_th] = False
-#
-#            # update time step
-#            dt = dt*2.0
-#            if dt > dt_max:
-#                dt = dt_max
-#            # update time
-#            t += dt
-#            # update k
-#            k += 1
-#        else:
-#            if dt == dt_min:
-#                # update solution
-#                alpha_ = alpha
-#                c_ = c
-#                phi_ = phi
-#                ss_ = ss
-#
-#                # save spike times
-#                phi_ms = phi[0][0] - phi[0][-1]
-#                above_th = np.greater_equal(phi_ms, -20)
-#                condition = above_th > spiking
-#                spiking[condition] = True
-#                t_AP[k][condition] = t
-#                below_th = np.less(phi_ms, -40)
-#                spiking[below_th] = False
-#
-#                # update time
-#                t += dt
-#                # update k
-#                k += 1
-#            else:
-#                # update time step
-#                t -= dt
-#                dt = dt/2.0
-#                if dt < dt_min:
-#                    dt = dt_min
-#                # update time
-#                t += dt
-           
     # remove empty stuff
     t_AP = t_AP[0:k]
     t_array = t_array[0:k]
