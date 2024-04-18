@@ -6,10 +6,7 @@ import copy
 from ednm.aot_residual import residual
 from ednm.aot_jacobian import jacobian
 
-#spikes = np.load('spike_train.npz')['spike_train']
-spikes = np.linspace(0, 2, 10)
-
-def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=True):
+def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, stimulus_protocol, verbose=True):
     """
     Update alpha, c, and phi using Newton's method.
 
@@ -46,6 +43,16 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
     jalpha_s = model.jalpha_s
     jalpha_d = model.jalpha_d
 
+    # get stimulus conditions
+    stim_start = stimulus_protocol['stim_start']
+    stim_end = stimulus_protocol['stim_end']
+    if t > stim_start and t < stim_end:
+        j_stim = stimulus_protocol['j_stim']        # constant stimulus flux
+    else:
+        j_stim = 0
+    N_stim = stimulus_protocol['N_stim']            # number of cells receiving constant stimulus
+    spike_train = stimulus_protocol['spike_train']  # spike train for synaptic stimulus
+
     # parameters for Newton iteration
     itermax = 10            # maximum Newton iterations allowed
     tol = 1e-12             # tolerance
@@ -71,7 +78,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
 
         # compute residual
         Res = residual(dt, N_units, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
-                alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, j_stim, N_stim, spikes)
+                alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, j_stim, N_stim, spike_train)
         rsd = norm(Res, np.inf)
 
         if verbose:
@@ -85,7 +92,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
 
         # compute Jacobian
         irow, icol, Avals = jacobian(dt, N_units, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
-                                alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, spikes)
+                                alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, spike_train)
 
         # create sparse matrix
         A = coo_array((Avals, (irow.astype(int), icol.astype(int))), shape=(N_unknowns_tot, N_unknowns_tot)).tocsc()
@@ -147,12 +154,6 @@ def gating_variables(model, dt, ss_, c, phi):
     return ss
 
 def solve_system(model, path_results, Tstop, stimulus_protocol):
-
-    # get stimulus parameters
-    j_stim = stimulus_protocol["j_stim"]
-    stim_start = stimulus_protocol["stim_start"]
-    stim_end = stimulus_protocol["stim_end"]
-    N_stim = stimulus_protocol["N_stim"]
 
     # get initial conditions
     alpha_n_init = model.alpha_sn_init
@@ -264,10 +265,7 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
         print('----------------------------------------------------')
 
         # solve
-        if t > stim_start and t < stim_end:
-            alpha, c, phi = alpha_c_phi(model, dt, alpha_, c_, phi_, ss_, t, t_AP, j_stim, N_stim)
-        else:
-            alpha, c, phi = alpha_c_phi(model, dt, alpha_, c_, phi_, ss_, t, t_AP, 0.0, N_stim)
+        alpha, c, phi = alpha_c_phi(model, dt, alpha_, c_, phi_, ss_, t, t_AP, stimulus_protocol)
         ss = gating_variables(model, dt, ss_, c, phi)
        
         # store solutions 

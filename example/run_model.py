@@ -1,33 +1,40 @@
 import os
 import time
+import numpy as np
 from plotter import plot_phi, plot_c_alpha, plot_phi_m
 from ednm import model, solver 
 
-# synapses (0: off, 1: on)
-# When turned on, each neuron connects to its right neighbour from soma to dendrite (neuron U connects to 0), 
-# and neuron 0 receives a stimulus at t = 0.1 s.
-synapses = 1
+# number of units
+N_units = 10
 
 # boundary condition (0: closed, 1: periodic)
 bc = 1
 
-# time variables
+# simulation duration 
 Tstop = 1.5
 
-# stimulus
+# set synapse model (0, 1, or 2)
+# 0: No synapses
+# 1: Each neuron connects to its right neighbour from soma to dendrite (neuron U connects to 0), 
+# and neuron 0 receives a stimulus at t = 0.1 s.
+# 2: Neuron 0 is stimulated by an external spike train (specified below).
+synapses = 1
+
+# stimulus paramaters for constant stimulus
 stim_start = 0
 stim_end = 0
 j_stim = 0    
-N_stim = 0 # number of cells receiving constant external input
+N_stim = 0  # number of cells receiving constant external input
+
+# spike train for synaptic stimulus
+spike_train = np.load('spike_train.npz')['spike_train']
 
 stimulus_protocol = {
         "j_stim": j_stim,
         "stim_start": stim_start,
         "stim_end": stim_end,
-        "N_stim": N_stim}
-
-# number of cells
-N_units = 10
+        "N_stim": N_stim,
+        "spike_train": spike_train}
 
 # check that directory for results (data) exists, if not create
 path_data = 'results/data/'
@@ -40,7 +47,7 @@ start_ = time.time()
 model = model.Model(N_units, synapses, bc)
 
 end_ = time.time()
-seconds_ = end_-start_
+seconds_ = end_ - start_
 
 # solve system
 start = time.time()
@@ -48,7 +55,7 @@ start = time.time()
 solver.solve_system(model, path_data, Tstop, stimulus_protocol)
 
 end = time.time()
-seconds = end-start
+seconds = end - start
 
 # print time
 m, s = divmod(seconds, 60)

@@ -124,7 +124,7 @@ class Model(object):
         self.N_domains = 3          # number of domains (neuron + ECS + glia)
         self.N_layers = 2           # number of layers (soma + dendrite)
         self.N_ions = 4             # number of ionic species (Na + K + Cl + Ca)
-        self.synapses = synapses    # (0: no synapses, 1: synapses)
+        self.synapses = synapses    # (0: no synapses, 1: synapse model one, 2: synapse model two)
         self.bc = bc                # boundary condition (0: closed, 1: periodic)
 
         # set parameters and initial conditions
@@ -545,7 +545,9 @@ class Model(object):
         j = self.U_nkcc1 * (1.0 / (1.0 + np.exp(16.0 - K_e))) * (np.log(K_n*Cl_n/(K_e*Cl_e)) + np.log(Na_n*Cl_n/(Na_e*Cl_e)))
         return j
 
-    def g_syn(self, t, t_AP):
+    def g_syn_one(self, t, t_AP):
+        """ Each neurons connetcs to its right neighbor from soma to dendrite 
+        (neuron U connects to neuron 0), and neuron 0 receives a stimulus at t = 0.1 s. """
            
         tau_1 = 3.0e-3   # [s]
         tau_2 = 1.0e-3   # [s]
@@ -557,11 +559,12 @@ class Model(object):
         t_s[:,1:] = t_AP[:,:-1]
         t_s[:,0] = t_AP[:,-1]
 
-        if self.synapses:
-            t_s[0,0] = 0.09
-        
+        # initiate activity
+        t_s[0,0] = 0.09
+       
+        # calculate conductance
         g = np.zeros(self.N_units, dtype=np.float64)
-        
+
         for u in range(self.N_units):
             condition_1 = t_s[:,u] > 0.0
             t_s_ = np.extract(condition_1, t_s[:,u])
@@ -575,7 +578,8 @@ class Model(object):
 
         return g
 
-    def g_syn_external(self, t, spike_train):
+    def g_syn_two(self, t, spike_train):
+        """ Neuron 0 is stimulated by a spike train. """
            
         tau_1 = 3.0e-3   # [s]
         tau_2 = 1.0e-3   # [s]
@@ -726,7 +730,7 @@ class Model(object):
 
         return j_m_s, djm_dci_s, djm_dce_s, djm_dphii_s, djm_dphie_s
 
-    def set_membrane_fluxes_d(self, alpha_d, c_d, phi_d, alpha_d_, c_d_, phi_d_, ss_, t, t_AP, spikes):
+    def set_membrane_fluxes_d(self, alpha_d, c_d, phi_d, alpha_d_, c_d_, phi_d_, ss_, t, t_AP, spike_train):
         """ set the models transmembrane ion fluxes - dendrite layer """
 
         # split unknowns
@@ -748,10 +752,12 @@ class Model(object):
         z_Cl = self.z[2]
         z_Ca = self.z[3]
         bCa_n = self.bCa_dn 
-        if self.synapses:
-            g_synapse = self.g_syn(t, t_AP)
-            #g_synapse = self.g_syn_external(t, spikes)
-        else: g_synapse = np.zeros(self.N_units, dtype=np.float64)
+        if self.synapses == 1:
+            g_synapse = self.g_syn_one(t, t_AP)
+        elif self.synapses == 2:
+            g_synapse = self.g_syn_two(t, spike_train)
+        else: 
+            g_synapse = np.zeros(self.N_units, dtype=np.float64)
 
         # calculate membrane potentials
         phi_mn = phi_n - phi_e
@@ -1046,7 +1052,7 @@ class Model(object):
 
         return 
 
-    def residual(self, dt, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d, alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, j_stim, N_stim, spikes):
+    def residual(self, dt, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d, alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, j_stim, N_stim, spike_train):
         """ Calculate residual for Newton's method. """
 
         # get parameters, solver
@@ -1076,7 +1082,7 @@ class Model(object):
 
         # calculate transmembrane fluxes
         j_m_s, djm_dci_s, djm_dce_s, djm_dphii_s, djm_dphie_s = self.set_membrane_fluxes_s(alpha_s, c_s, phi_s, alpha_s_, c_s_, phi_s_, ss_)
-        j_m_d, djm_dci_d, djm_dce_d, djm_dphii_d, djm_dphie_d = self.set_membrane_fluxes_d(alpha_d, c_d, phi_d, alpha_d_, c_d_, phi_d_, ss_, t, t_AP, spikes)
+        j_m_d, djm_dci_d, djm_dce_d, djm_dphii_d, djm_dphie_d = self.set_membrane_fluxes_d(alpha_d, c_d, phi_d, alpha_d_, c_d_, phi_d_, ss_, t, t_AP, spike_train)
 
         # calculate transmembrane water flow
         w_m_s, w_m_d, dw_dalpha_s, dw_dalpha_d, dw_dci_s, dw_dci_d, dw_dce_s, dw_dce_d = self.set_water_flow(alpha_s, alpha_d, c_s, c_d)
@@ -1170,7 +1176,7 @@ class Model(object):
 
         return Res
 
-    def jacobian(self, dt, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d, alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, spikes):
+    def jacobian(self, dt, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d, alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, spike_train):
         """ Calculate Jacobian for Newton's method. """
 
         # get parameters, solver
@@ -1199,7 +1205,7 @@ class Model(object):
 
         # calculate transmembrane fluxes
         j_m_s, djm_dci_s, djm_dce_s, djm_dphii_s, djm_dphie_s = self.set_membrane_fluxes_s(alpha_s, c_s, phi_s, alpha_s_, c_s_, phi_s_, ss_)
-        j_m_d, djm_dci_d, djm_dce_d, djm_dphii_d, djm_dphie_d = self.set_membrane_fluxes_d(alpha_d, c_d, phi_d, alpha_d_, c_d_, phi_d_, ss_, t, t_AP, spikes)
+        j_m_d, djm_dci_d, djm_dce_d, djm_dphii_d, djm_dphie_d = self.set_membrane_fluxes_d(alpha_d, c_d, phi_d, alpha_d_, c_d_, phi_d_, ss_, t, t_AP, spike_train)
 
         # calculate transmembrane water flow
         w_m_s, w_m_d, dw_dalpha_s, dw_dalpha_d, dw_dci_s, dw_dci_d, dw_dce_s, dw_dce_d = self.set_water_flow(alpha_s, alpha_d, c_s, c_d)
