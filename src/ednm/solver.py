@@ -11,7 +11,7 @@ spikes = np.linspace(0, 2, 10)
 
 def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=True):
     """
-    Updates alpha, c, and phi using Newton's method.
+    Update alpha, c, and phi using Newton's method.
 
     Arguments:
         model (class): network model
@@ -32,7 +32,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
 
     # get parameters
     synapses = model.synapses                   # (0: no synapses, 1: synapses)
-    bc = model.bc                               # boundary condition (0: closed, 1: open)
+    bc = model.bc                               # boundary condition (0: closed, 1: periodic)
     N_domains = model.N_domains                 # number of domains
     N_units = model.N_units                     # number of units
     N_ions = model.N_ions                       # number of ions
@@ -113,6 +113,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, j_stim, N_stim, verbose=
     return alpha, c, phi
 
 def gating_variables(model, dt, ss_, c, phi):
+    """ Update gating variables. """
 
     # split arrays
     h_, n_, s_, c_, q_, z_ = ss_
@@ -212,30 +213,30 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
     phi_ = np.array([phi_s_, phi_d_], dtype=np.float64)
     ss_ = np.array([h_init, n_init, s_init, c_init, q_init, z_init], dtype=np.float64)
 
+    # print charge
     q_n = model.F*(Na_sn_init + K_sn_init - Cl_sn_init + 2*Ca_sn_init - model.a_s[0]/alpha_n_init)*alpha_n_init
     q_g = model.F*(Na_sg_init + K_sg_init - Cl_sg_init - model.a_s[1]/alpha_g_init)*alpha_g_init
     q_e = model.F*(Na_se_init + K_se_init - Cl_se_init + 2*Ca_se_init - model.a_s[2]/0.2)*0.2
     print('------------------------------------')
-    print('----soma----')
-    print('q_n+q_g, unit 0:', q_n[0]+q_g[0])
+    print('----charge soma----')
+    print('q_n + q_g, unit 0:', q_n[0]+q_g[0])
     print('q_e, unit 0:', q_e[0])
     print('q_tot, unit 0:', (q_e[0]+q_n[0]+q_g[0]))
     q_n = model.F*(Na_dn_init + K_dn_init - Cl_dn_init + 2*Ca_dn_init - model.a_d[0]/alpha_n_init)*alpha_n_init
     q_g = model.F*(Na_dg_init + K_dg_init - Cl_dg_init - model.a_d[1]/alpha_g_init)*alpha_g_init
     q_e = model.F*(Na_de_init + K_de_init - Cl_de_init + 2*Ca_de_init - model.a_d[2]/0.2)*0.2
-    print('----dendrite----')
-    print('q_n+q_g, unit 0:', q_n[0]+q_g[0])
+    print('----charge dendrite----')
+    print('q_n + q_g, unit 0:', q_n[0]+q_g[0])
     print('q_e, unit 0:', q_e[0])
     print('q_tot, unit 0:', (q_e[0]+q_n[0]+q_g[0]))
     print('------------------------------------')
 
-    # maximum number of time steps
-    dt = 5e-5       # time step
-    N_t = int(Tstop/dt) + 3
+    # time steps
+    dt = 5e-5                # time step
+    N_t = int(Tstop/dt) + 3  # number of time steps
 
     # create arrays to store results
     t_array = np.zeros(N_t)
-    dt_array = np.zeros(N_t)
     alpha_array = np.zeros((N_t, model.N_layers, model.N_domains-1, model.N_units))
     c_array = np.zeros((N_t, model.N_layers, model.N_ions, model.N_domains, model.N_units))
     phi_array = np.zeros((N_t, model.N_layers, model.N_domains, model.N_units))
@@ -248,7 +249,6 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
 
     # save initial conditions / initial guesses
     t_array[0] = - dt
-    dt_array[0] = dt
     alpha_array[0] = alpha_
     c_array[0] = c_ 
     phi_array[0] = phi_
@@ -257,11 +257,11 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
     # solve
     k = 1
     t = 0
-    while t < Tstop:
+    while t <= Tstop:
 
-        print('*************************************')
+        print('----------------------------------------------------')
         print('Current time:', t, 's')
-        print('-------------------------------------')
+        print('----------------------------------------------------')
 
         # solve
         if t > stim_start and t < stim_end:
@@ -272,7 +272,6 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
        
         # store solutions 
         t_array[k] = t
-        dt_array[k] = dt
         alpha_array[k][:][:][:] = alpha
         c_array[k][:][:][:][:] = c
         phi_array[k][:][:][:] = phi
@@ -301,7 +300,6 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
     # remove empty stuff
     t_AP = t_AP[0:k]
     t_array = t_array[0:k]
-    dt_array = dt_array[0:k]
     alpha_array = alpha_array[0:k][:][:][:]
     c_array = c_array[0:k][:][:][:][:]
     phi_array = phi_array[0:k][:][:][:]
@@ -309,6 +307,6 @@ def solve_system(model, path_results, Tstop, stimulus_protocol):
 
     # save results to file
     filename = path_results + 'data.npz'
-    np.savez(filename, N_units=model.N_units, t=t_array, dt=dt_array, alpha=alpha_array, c=c_array, phi=phi_array, ss=ss_array, t_AP=t_AP)
+    np.savez(filename, N_units=model.N_units, t=t_array, dt=dt, alpha=alpha_array, c=c_array, phi=phi_array, ss=ss_array, t_AP=t_AP)
 
     return

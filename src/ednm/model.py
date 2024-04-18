@@ -93,6 +93,8 @@ spec = [
         ('bK_se', float64),
         ('bK_dg', float64),
         ('bK_de', float64),
+        ('bCa_sn', float64),
+        ('bCa_dn', float64),
         ('bE_K_sg', float64),
         ('bE_K_dg', float64),
         ('a_s', float64[:, :]),
@@ -123,7 +125,7 @@ class Model(object):
         self.N_layers = 2           # number of layers (soma + dendrite)
         self.N_ions = 4             # number of ionic species (Na + K + Cl + Ca)
         self.synapses = synapses    # (0: no synapses, 1: synapses)
-        self.bc = bc                # boundary condition (0: closed, 1: open)
+        self.bc = bc                # boundary condition (0: closed, 1: periodic)
 
         # set parameters and initial conditions
         self.set_initial_conditions()
@@ -221,6 +223,8 @@ class Model(object):
         self.bK_se = 3.082 
         self.bK_dg = 99.959
         self.bK_de = 3.082
+        self.bCa_sn = 0.01
+        self.bCa_dn = 0.01
         # baseline reversal potentials (mV)
         self.bE_K_sg, dummy, dummy = self.nernst_potential(self.z[1], self.upsilon[1][1], self.bK_sg, self.bK_se)
         self.bE_K_dg, dummy, dummy = self.nernst_potential(self.z[1], self.upsilon[1][1], self.bK_dg, self.bK_de)
@@ -465,6 +469,7 @@ class Model(object):
         z = self.z
         theta = self.theta
 
+        # calculate flux and derivatives
         f_1 = theta[r] * D[k] * upsilon[k][r] / (lambdas[r]**2 * dxl)
         f_2 = f_1 * z[k] / (2 * psi)
 
@@ -487,6 +492,7 @@ class Model(object):
         dxu = self.dxu
         z = self.z
 
+        # calculate flux and derivatives
         j_interunits = np.zeros(self.N_units)
         dju_dc0 = np.zeros(self.N_units)
         dju_dc1 = np.zeros(self.N_units)
@@ -604,8 +610,7 @@ class Model(object):
         z_Na = self.z[0]
         z_K = self.z[1]
         z_Cl = self.z[2]
-        z_Ca = self.z[3]
-        bCa_n = 0.01
+        bCa_n = self.bCa_sn
 
         # calculate membrane potentials
         phi_mn = phi_n - phi_e
@@ -742,7 +747,7 @@ class Model(object):
         z_K = self.z[1]
         z_Cl = self.z[2]
         z_Ca = self.z[3]
-        bCa_n = 0.01
+        bCa_n = self.bCa_dn 
         if self.synapses:
             g_synapse = self.g_syn(t, t_AP)
             #g_synapse = self.g_syn_external(t, spikes)
@@ -752,7 +757,6 @@ class Model(object):
         phi_mn = phi_n - phi_e
         phi_mg = phi_g - phi_e
         # calculate membrane potentials from previous time step
-        phi_mn_ = phi_n_ - phi_e_
         phi_mg_ = phi_g_ - phi_e_
 
         # calculate reversal potentials - neuron
@@ -821,7 +825,6 @@ class Model(object):
         # glial membrane flux - potassium
         E_K_g_, dE_K_dci_g_, dE_K_dce_g_ = self.nernst_potential(self.z[1], self.upsilon[1][1], K_g_, K_e_)
         dphi = (phi_mg_ - E_K_g_)
-        bE_K_mil = self.bE_K_sg
         fact1 = (1.0 + np.exp(18.4/42.4))/(1.0 + np.exp((dphi + 18.5)/42.5))
         fact2 = (1.0 + np.exp(-(118.6+self.bE_K_sg)/44.1))/(1.0+np.exp(-(118.6+phi_mg_)/44.1))
         f = np.sqrt(K_e_/self.bK_se) * fact1 * fact2 
@@ -853,21 +856,25 @@ class Model(object):
         djm_dci_d[0][0][:] = djNa_dci_n; djm_dci_d[0][1][:] = djNa_dci_g
         djm_dci_d[1][0][:] = djK_dci_n; djm_dci_d[1][1][:] = djK_dci_g
         djm_dci_d[2][0][:] = djCl_dci_n; djm_dci_d[2][1][:] = djCl_dci_g
+        djm_dci_d[3][0][:] = djCa_dci_n;
         
         djm_dce_d = np.zeros((self.N_ions, self.N_domains-1, self.N_units), dtype=np.float64)
         djm_dce_d[0][0][:] = djNa_dce_n; djm_dce_d[0][1][:] = djNa_dce_g
         djm_dce_d[1][0][:] = djK_dce_n; djm_dce_d[1][1][:] = djK_dce_g
         djm_dce_d[2][0][:] = djCl_dce_n; djm_dce_d[2][1][:] = djCl_dce_g
+        djm_dce_d[3][0][:] = djCa_dce_n;
 
         djm_dphii_d = np.zeros((self.N_ions, self.N_domains-1, self.N_units), dtype=np.float64)
         djm_dphii_d[0][0][:] = djNa_dphii_n; djm_dphii_d[0][1][:] = djNa_dphii_g
         djm_dphii_d[1][0][:] = djK_dphii_n; djm_dphii_d[1][1][:] = djK_dphii_g
         djm_dphii_d[2][0][:] = djCl_dphii_n; djm_dphii_d[2][1][:] = djCl_dphii_g
+        djm_dphii_d[3][0][:] = djCa_dphii_n;
         
         djm_dphie_d = np.zeros((self.N_ions, self.N_domains-1, self.N_units), dtype=np.float64)
         djm_dphie_d[0][0][:] = djNa_dphie_n; djm_dphie_d[0][1][:] = djNa_dphie_g
         djm_dphie_d[1][0][:] = djK_dphie_n; djm_dphie_d[1][1][:] = djK_dphie_g
         djm_dphie_d[2][0][:] = djCl_dphie_n; djm_dphie_d[2][1][:] = djCl_dphie_g
+        djm_dphie_d[3][0][:] = djCa_dphie_n;
 
         return j_m_d, djm_dci_d, djm_dce_d, djm_dphii_d, djm_dphie_d
 
