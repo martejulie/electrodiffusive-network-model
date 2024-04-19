@@ -28,7 +28,8 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, stimulus_protocol, verbo
     """
 
     # get parameters
-    synapses = model.synapses                   # (0: no synapses, 1: synapses)
+    dxu = model.dxu                             # distance between units
+    synapses = model.synapses                   # (0: no synapses, 1: synapse model one, 2: synapse model two)
     bc = model.bc                               # boundary condition (0: closed, 1: periodic)
     N_domains = model.N_domains                 # number of domains
     N_units = model.N_units                     # number of units
@@ -77,7 +78,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, stimulus_protocol, verbo
     while rsd > tol:
 
         # compute residual
-        Res = residual(dt, N_units, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
+        Res = residual(dt, N_units, dxu, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
                 alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, j_stim, N_stim, spike_train)
         rsd = norm(Res, np.inf)
 
@@ -91,7 +92,7 @@ def alpha_c_phi(model, dt, alpha, c, phi, ss_, t, t_AP, stimulus_protocol, verbo
         N_iter += 1
 
         # compute Jacobian
-        irow, icol, Avals = jacobian(dt, N_units, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
+        irow, icol, Avals = jacobian(dt, N_units, dxu, synapses, bc, alpha_s, alpha_d, c_s, c_d, phi_s, phi_d,
                                 alpha_s_, alpha_d_, c_s_, c_d_, phi_s_, phi_d_, ss_, t, t_AP, spike_train)
 
         # create sparse matrix

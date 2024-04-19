@@ -118,7 +118,7 @@ spec = [
 class Model(object):
     """  """
 
-    def __init__(self, N_units, synapses, bc):
+    def __init__(self, N_units, dxu, synapses, bc):
        
         self.N_units = N_units      # number of units
         self.N_domains = 3          # number of domains (neuron + ECS + glia)
@@ -126,6 +126,7 @@ class Model(object):
         self.N_ions = 4             # number of ionic species (Na + K + Cl + Ca)
         self.synapses = synapses    # (0: no synapses, 1: synapse model one, 2: synapse model two)
         self.bc = bc                # boundary condition (0: closed, 1: periodic)
+        self.dxu = dxu              # distance between units [cm]
 
         # set parameters and initial conditions
         self.set_initial_conditions()
@@ -153,9 +154,6 @@ class Model(object):
         # distance between layers [cm]
         self.dxl = 6.67e-2
         
-        # distance between units [cm]
-        self.dxu = 5.0e-4
-
         # layer coupling
         th = 350
         self.theta = np.array([th, th, th], dtype=np.float64)

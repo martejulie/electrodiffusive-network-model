@@ -7,6 +7,9 @@ from ednm import model, solver
 # number of units
 N_units = 10
 
+# distance between units [cm]
+dxu = 5.0e-4
+
 # boundary condition (0: closed, 1: periodic)
 bc = 1
 
@@ -44,7 +47,7 @@ if not os.path.isdir(path_data):
 # build model
 start_ = time.time()
 
-model = model.Model(N_units, synapses, bc)
+model = model.Model(N_units, dxu, synapses, bc)
 
 end_ = time.time()
 seconds_ = end_ - start_
