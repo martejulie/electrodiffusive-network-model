@@ -1,8 +1,8 @@
 # Electrodiffusive network model
 
 This repository contains an implementation of the model presented in 
-[Sætra and Mori (2024) An electrodiffusive network model with multicompartmental neurons and synaptic
-connections, *bioRxiv*](https://www.biorxiv.org/content/10.1101/2024.04.29.591594v1.abstract). 
+[Sætra MJ, Mori Y (2024) An electrodiffusive network model with multicompartmental neurons and synaptic
+connections, PLoS Comput Biol 20(11): e1012114](https://doi.org/10.1371/journal.pcbi.1012114). 
 
 ## Installation 
 
